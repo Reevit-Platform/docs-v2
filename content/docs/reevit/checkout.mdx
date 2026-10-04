@@ -154,14 +154,17 @@ For Vue and Svelte, pass the same `sessionSecret` prop to `ReevitCheckout`. If y
 
 ## Option: Generate Checkout Integration with the Reevit CLI
 
-You can scaffold and wire checkout into an existing frontend page with:
+Install the published CLI from npm, then scaffold and wire checkout into an existing frontend page:
 
 ```bash
+npm install -g @reevit/cli@0.7.1
 reevit init --goal checkout \
   --checkout-page src/app/cart/page.tsx \
   --checkout-fields price,name,email,phone,reference \
   --checkout-metadata order_id,product_sku
 ```
+
+The published CLI is [listed on npm](https://www.npmjs.com/package/@reevit/cli) and its [source and binary release are on GitHub](https://github.com/Reevit-Platform/cli/releases/tag/v0.7.1). Local release candidates are not published versions.
 
 In interactive mode, the CLI asks for:
 
