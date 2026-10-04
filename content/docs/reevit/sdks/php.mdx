@@ -105,7 +105,7 @@ echo "Status: {$payment['status']}\n";
 ### List Payments
 
 ```php
-$payments = $client->payments->list(['limit' => 50, 'offset' => 0]);
+$payments = $client->payments->list(50, 0);
 foreach ($payments as $payment) {
     echo "{$payment['id']}: {$payment['status']}\n";
 }
@@ -156,7 +156,7 @@ $connection = $client->connections->create([
 ```php
 $connections = $client->connections->list();
 foreach ($connections as $conn) {
-    echo "{$conn->provider} ({$conn->mode}): {$conn->status}\n";
+    echo "{$conn['provider']} ({$conn['mode']}): {$conn['status']}\n";
 }
 ```
 
@@ -241,10 +241,10 @@ try {
         'method' => 'mobile_money',
         'country' => 'GH',
     ], 'order:ORD-12345');
-} catch (\Reevit\Exception\ApiException $e) {
+} catch (\Reevit\ReevitApiException $e) {
     echo "API Error: {$e->getMessage()}\n";
-    echo "Code: {$e->getCode()}\n";
-    echo "HTTP Status: {$e->getHttpStatus()}\n";
+    echo "Code: {$e->getErrorCode()}\n";
+    echo "HTTP Status: {$e->getStatus()}\n";
 } catch (\Exception $e) {
     echo "Error: {$e->getMessage()}\n";
 }

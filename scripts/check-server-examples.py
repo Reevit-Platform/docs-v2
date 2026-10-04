@@ -20,10 +20,29 @@ requests = []
 
 
 class Fixture(BaseHTTPRequestHandler):
+    def do_GET(self):
+        requests.append({"method": "GET", "path": self.path, "key": None, "payload": None})
+        if self.path.startswith("/v1/connections"):
+            payload = {"connections": [{"id": "conn_docs_fixture", "provider": "paystack", "mode": "sandbox", "status": "active"}], "pagination": {"total": 1, "limit": 50, "offset": 0}}
+        elif self.path.startswith("/v1/payments?"):
+            payload = {"payments": [{"id": "pay_docs_list", "status": "succeeded"}]}
+        else:
+            payload = {"id": "pay_docs_fixture", "status": "succeeded"}
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode())
+
     def do_POST(self):
         payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         key = self.headers.get("Idempotency-Key")
-        requests.append({"path": self.path, "key": key, "payload": payload})
+        requests.append({"method": "POST", "path": self.path, "key": key, "payload": payload})
+        if self.path.startswith("/forced-error/"):
+            self.send_response(422)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"code": "fixture_invalid", "message": "Documentation fixture validation"}).encode())
+            return
         self.send_response(200 if key and isinstance(payload, dict) else 400)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -88,6 +107,27 @@ try:
     run(["php", str(php_file)], env=env)
     counts["phpCalls"] = len(php_calls)
 
+    # Execute the full list/get examples, including their array access and the
+    # typed exception branch, rather than merely extracting a mutation call.
+    php_fences = re.findall(r"```php\n([\s\S]*?)```", php)
+    list_fences = [code for code in php_fences if re.search(r"\$client->(?:payments|connections)->(?:list|get)\(", code)]
+    error_fence = next(code for code in php_fences if "catch (\\Reevit\\ReevitApiException" in code)
+    flow = "<?php\nrequire getenv('DOCS_PUBLIC_PHP_AUTOLOAD');\nuse Reevit\\Reevit;\n"
+    flow += "set_error_handler(function ($severity, $message, $file, $line) { throw new \\ErrorException($message, 0, $severity, $file, $line); });\n"
+    flow += constructor + "\n" + "\n".join(list_fences)
+    flow += "\n$client = new Reevit(getenv('REEVIT_API_KEY'), getenv('REEVIT_ORG_ID'), getenv('REEVIT_BASE_URL') . '/forced-error');\n"
+    flow += error_fence
+    flow_file = PROOF / "documented-php-list-errors.php"
+    flow_file.write_text(flow)
+    output = subprocess.run(["php", str(flow_file)], env=env, text=True, capture_output=True, check=True, timeout=30)
+    assert output.stderr == "", output.stderr
+    assert "pay_docs_list: succeeded" in output.stdout, output.stdout
+    assert "paystack (sandbox): active" in output.stdout, output.stdout
+    assert "API Error: Documentation fixture validation" in output.stdout, output.stdout
+    assert "Code: fixture_invalid" in output.stdout and "HTTP Status: 422" in output.stdout, output.stdout
+    counts["phpListExamples"] = len(list_fences)
+    counts["phpErrorExamples"] = 1
+
     python = (ROOT / "sdks/python.mdx").read_text()
     python_calls = []
     for code in re.findall(r"```python\n([\s\S]*?)```", python):
@@ -120,9 +160,10 @@ try:
     run(["go", "run", "-mod=mod", "."], env=env, cwd=go_dir)
     counts["goCalls"] = len(go_calls)
 
-    expected = sum(counts.values()) * 2
-    assert len(requests) == expected, (len(requests), expected)
-    for first, retry in zip(requests[::2], requests[1::2]):
+    expected = sum(counts[key] for key in ("phpCalls", "pythonCalls", "goCalls")) * 2
+    writes = [request for request in requests if request["method"] == "POST" and not request["path"].startswith("/forced-error/")]
+    assert len(writes) == expected, (len(writes), expected)
+    for first, retry in zip(writes[::2], writes[1::2]):
         assert first["key"] and first == retry, "documented retries must preserve key and body"
         if first["path"] == "/v1/payments/intents":
             assert isinstance(first["payload"]["amount"], int)
