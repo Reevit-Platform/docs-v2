@@ -277,9 +277,9 @@ const response = await fetch(new URL('/v1/policies/fraud', process.env.REEVIT_BA
     'Idempotency-Key': 'fraud-policy:update:revision_2',
   },
   body: JSON.stringify({
-    prefer: ['paystack', 'flutterwave'],
     max_amount: 500000,
     blocked_bins: ['123456'],
+    allowed_bins: [],
     velocity_max_per_minute: 10,
   }),
 });

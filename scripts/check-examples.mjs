@@ -164,7 +164,10 @@ export {};`, file);
     } else if (relative === 'ab-testing.mdx') {
       assert.equal(writes[0].path, '/v1/routing-ab-tests');
       assert.ok(writes[0].payload.variants.every(variant => variant.name && variant.routing_rule_id && variant.weight));
-    } else assert.equal(writes[0].path, '/v1/policies/fraud');
+    } else {
+      assert.equal(writes[0].path, '/v1/policies/fraud');
+      assert.deepEqual(Object.keys(writes[0].payload).sort(), ['allowed_bins', 'blocked_bins', 'max_amount', 'velocity_max_per_minute']);
+    }
     restExamples++;
   }
 
