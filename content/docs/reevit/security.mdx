@@ -108,11 +108,12 @@ For Stripe, store your webhook signing secret in connection credentials:
 ```typescript
 await reevit.connections.create({
   provider: "stripe",
+  mode: "live",
   credentials: {
     secret_key: "sk_live_...",
     stripe_webhook_secret: "whsec_..."  // Required for webhook verification
   }
-});
+}, { idempotencyKey: 'connection:create:stripe:live' });
 ```
 
 <Callout type="warning">
@@ -318,14 +319,14 @@ By default, data is processed in **EU-West (Ireland)**. Enterprise customers can
      provider: 'paystack',
      mode: 'sandbox',
      credentials: { secret_key: 'sk_test_...' }
-   });
+   }, { idempotencyKey: 'connection:create:paystack:sandbox' });
 
    // Production
    await reevit.connections.create({
      provider: 'paystack',
      mode: 'live',
      credentials: { secret_key: 'sk_live_...' }
-   });
+   }, { idempotencyKey: 'connection:create:paystack:live' });
    ```
 
 2. **Enable connection health monitoring**
@@ -336,9 +337,15 @@ By default, data is processed in **EU-West (Ireland)**. Enterprise customers can
    ```typescript
    await reevit.connections.create({
      provider: 'stripe',
+     mode: 'live',
+     credentials: { secret_key: 'sk_live_...' },
      labels: ['production', 'cards-primary', 'eu'],
-     routing_hints: { priority: 'primary' }
-   });
+     routing_hints: {
+       country_preference: ['DE', 'FR'],
+       method_bias: { card: 'high' },
+       fallback_only: false
+     }
+   }, { idempotencyKey: 'connection:create:stripe:cards-primary' });
    ```
 
 ---

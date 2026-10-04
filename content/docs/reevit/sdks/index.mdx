@@ -64,7 +64,7 @@ Pre-built checkout widgets with customizable themes for React, Vue, and Svelte.
 | **@reevit/react** | [![npm](https://img.shields.io/npm/v/@reevit/react.svg)](https://www.npmjs.com/package/@reevit/react) | [Reevit-Platform/react-sdk](https://github.com/Reevit-Platform/react-sdk) |
 | **@reevit/vue** | [![npm](https://img.shields.io/npm/v/@reevit/vue.svg)](https://www.npmjs.com/package/@reevit/vue) | [Reevit-Platform/vue-sdk](https://github.com/Reevit-Platform/vue-sdk) |
 | **@reevit/svelte** | [![npm](https://img.shields.io/npm/v/@reevit/svelte.svg)](https://www.npmjs.com/package/@reevit/svelte) | [Reevit-Platform/svelte-sdk](https://github.com/Reevit-Platform/svelte-sdk) |
-| **@reevit/core** | [![npm](https://img.shields.io/npm/v/@reevit/core.svg)](https://www.npmjs.com/package/@reevit/core) | [Reevit-Platform/core](https://github.com/Reevit-Platform/core) |
+| **@reevit/core** | [![npm](https://img.shields.io/npm/v/@reevit/core.svg)](https://www.npmjs.com/package/@reevit/core) | [Reevit-Platform/core-sdk](https://github.com/Reevit-Platform/core-sdk) |
 
 ### Features
 
@@ -183,8 +183,31 @@ const payment = await client.payments.createIntent({
   method: 'mobile_money',
   country: 'GH',
   reference: 'ORD-12345'
-});
+}, { idempotencyKey: 'order:ORD-12345' });
 ```
+
+---
+
+## Amounts and display
+
+API and checkout amounts use the currency's smallest unit. The exponent varies by currency:
+
+| Currency | API amount | Displayed amount |
+|---------|------------|------------------|
+| GHS | `10000` | GHS 100.00 |
+| USD | `2000` | USD 20.00 |
+| XOF | `5000` | XOF 5,000 |
+| KWD | `12345` | KWD 12.345 |
+
+Use the published wrapper's formatter when showing a payment result:
+
+```typescript
+import { formatAmount } from '@reevit/react';
+
+const display = formatAmount(5000, 'XOF'); // F CFA 5,000
+```
+
+Vue and Svelte also export `formatAmount(amount, currency)`. It applies the currency exponent; dividing every amount by `100` would display XOF 5,000 as XOF 50.
 
 ---
 

@@ -40,9 +40,8 @@ const customer = await reevit.customers.create({
   email: 'ada@example.com',
   name: 'Ada Lovelace',
   phone: '+233501234567',
-  tags: ['premium', 'early-adopter'],
   metadata: { plan: 'pro', signup_source: 'referral' }
-});
+}, { idempotencyKey: 'customer:create:usr_1234' });
 ```
 
 ### Linking a Payment to a Customer
@@ -53,9 +52,9 @@ When creating a payment, include the `customer_id`:
 await reevit.payments.createIntent({
   amount: 15000,
   currency: 'GHS',
+  country: 'GH',
   customer_id: customer.id, // Link to customer profile
-  // ...
-});
+}, { idempotencyKey: 'order:ORD-12345' });
 ```
 
 ---
@@ -68,7 +67,7 @@ await reevit.payments.createIntent({
 | `email` | string | | Customer's email address. Used for receipts and workflow triggers. |
 | `phone` | string | | Customer's phone number in E.164 format. |
 | `name` | string | | Full name or display name. |
-| `tags` | string[] | | Labels for segmentation (e.g., `["vip", "newsletter"]`). |
+| `tags` | string[] | | Labels for segmentation via REST; the published Node SDK's create input does not expose this field. |
 | `metadata` | object | | Attach arbitrary key-value pairs for your own tracking. |
 
 ---
@@ -149,7 +148,7 @@ const link = await reevit.paymentLinks.create({
   amount: 9900,
   currency: 'GHS',
   // ...
-});
+}, { idempotencyKey: 'payment-link:create:summer-sale-premium' });
 ```
 
 When customers pay through this link, their payment history will show:

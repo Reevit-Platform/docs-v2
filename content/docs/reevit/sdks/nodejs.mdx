@@ -10,6 +10,8 @@ description: TypeScript/JavaScript SDK for Reevit API
 
 The official Node.js/TypeScript SDK for the Reevit payment orchestration platform.
 
+Guarded writes shown here require an idempotency key, even when the SDK argument is optional in its type signature. Keep one key per logical order or operation, reuse it with the identical payload on retries, and use a new key for a new operation. A payment reference alone does not set the header.
+
 ## Installation
 
 ```bash
@@ -39,7 +41,7 @@ const payment = await reevit.payments.createIntent({
   country: 'GH',
   customer_id: 'cust_123',
   reference: 'ORD-12345'
-});
+}, { idempotencyKey: 'order:ORD-12345' });
 
 console.log('Payment ID:', payment.id);
 console.log('Status:', payment.status);
@@ -111,7 +113,7 @@ const payment = await reevit.payments.createIntent({
     product: 'Premium Plan',
     order_id: 'order_456'
   }
-});
+}, { idempotencyKey: 'order:order_456' });
 ```
 
 ### Payment Methods by Country
@@ -150,15 +152,18 @@ const page2 = await reevit.payments.list(10, 10);  // Next 10
 
 ### Refund Payment
 
+Choose either a full or partial refund. Each separate refund request needs its own stable operation key.
+
 ```typescript
 // Full refund
-const fullRefund = await reevit.payments.refund('pay_abc123');
+const fullRefund = await reevit.payments.refund('pay_abc123', undefined, undefined, { idempotencyKey: 'refund:pay_abc123:full' });
 
 // Partial refund
 const partialRefund = await reevit.payments.refund(
   'pay_abc123',
   2500,                    // Refund 25.00
-  'Customer requested'     // Reason (optional)
+  'Customer requested',    // Reason (optional)
+  { idempotencyKey: 'refund:pay_abc123:partial_1' }
 );
 ```
 
@@ -206,7 +211,7 @@ const paystackConnection = await reevit.connections.create({
     method_bias: { card: 'high', bank_transfer: 'medium' },
     fallback_only: false
   }
-});
+}, { idempotencyKey: 'connection:create:paystack:live' });
 ```
 
 ### List Connections
@@ -228,7 +233,7 @@ const isValid = await reevit.connections.test({
   credentials: {
     secret_key: 'sk_live_xxx'
   }
-});
+}, { idempotencyKey: 'connection:test:paystack:revision_1' });
 ```
 
 ---
@@ -247,7 +252,7 @@ const subscription = await reevit.subscriptions.create({
   metadata: {
     plan_name: 'Premium',
   }
-});
+}, { idempotencyKey: 'subscription:create:cust_123:plan_premium' });
 
 // List subscriptions
 const subscriptions = await reevit.subscriptions.list();
@@ -261,13 +266,25 @@ const subscriptions = await reevit.subscriptions.list();
 // Get current policy
 const policy = await reevit.fraud.get();
 
-// Update policy
-const updatedPolicy = await reevit.fraud.update({
-  prefer: ['paystack', 'flutterwave'],
-  max_amount: 500000,
-  blocked_bins: ['123456'],
-  velocity_max_per_minute: 10
+// The published Node SDK's fraud.update has no request-options argument.
+// Use REST to send the required operation key.
+const response = await fetch(new URL('/v1/policies/fraud', process.env.REEVIT_BASE_URL ?? 'https://api.reevit.io'), {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Reevit-Key': process.env.REEVIT_API_KEY!,
+    'X-Org-Id': process.env.REEVIT_ORG_ID!,
+    'Idempotency-Key': 'fraud-policy:update:revision_2',
+  },
+  body: JSON.stringify({
+    prefer: ['paystack', 'flutterwave'],
+    max_amount: 500000,
+    blocked_bins: ['123456'],
+    velocity_max_per_minute: 10,
+  }),
 });
+if (!response.ok) throw new Error(`Reevit request failed: ${response.status}`);
+const updatedPolicy = await response.json();
 ```
 
 ---
@@ -312,7 +329,7 @@ app.post('/webhooks/reevit', express.raw({ type: 'application/json' }), (req, re
 ## Error Handling
 
 ```typescript
-import { AxiosError } from 'axios';
+import { ReevitAPIError } from '@reevit/node';
 
 try {
   const payment = await reevit.payments.createIntent({
@@ -320,13 +337,13 @@ try {
     currency: 'GHS',
     method: 'mobile_money',
     country: 'GH'
-  });
+  }, { idempotencyKey: 'order:ORD-12345' });
 } catch (error) {
-  if (error instanceof AxiosError) {
+  if (error instanceof ReevitAPIError) {
     console.error('API Error:', {
-      status: error.response?.status,
-      message: error.response?.data?.message,
-      code: error.response?.data?.code
+      status: error.status,
+      message: error.message,
+      code: error.code
     });
   }
 }

@@ -10,6 +10,8 @@ description: Python SDK for Reevit API
 
 The official Python SDK for the Reevit payment orchestration platform.
 
+Guarded writes shown here require an idempotency key, even when the SDK argument is optional in its type signature. Keep one key per logical order or operation, reuse it with the identical payload on retries, and use a new key for a new operation. A payment reference alone does not set the header.
+
 ## Installation
 
 ```bash
@@ -21,7 +23,7 @@ pip install reevit
 ```python
 from reevit import Reevit
 
-client = Reevit(api_key="pfk_live_xxx.secret")
+client = Reevit(api_key="pfk_live_xxx.secret", org_id="org_123")
 
 # Create a payment
 payment = client.payments.create_intent({
@@ -72,6 +74,7 @@ from reevit import Reevit
 
 client = Reevit(
     api_key=os.environ["REEVIT_API_KEY"],
+    org_id=os.environ["REEVIT_ORG_ID"],
     base_url=os.environ.get("REEVIT_BASE_URL", "https://api.reevit.io")
 )
 ```
@@ -112,12 +115,14 @@ for p in payments:
 
 ### Refund Payment
 
+Choose either a full or partial refund. Each separate refund request needs its own stable operation key.
+
 ```python
 # Full refund
-refund = client.payments.refund("pay_abc123")
+refund = client.payments.refund("pay_abc123", idempotency_key="refund:pay_abc123:full")
 
 # Partial refund
-refund = client.payments.refund("pay_abc123", amount=2500, reason="Customer requested")
+refund = client.payments.refund("pay_abc123", amount=2500, reason="Customer requested", idempotency_key="refund:pay_abc123:partial_1")
 ```
 
 ---

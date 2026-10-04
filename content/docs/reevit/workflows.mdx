@@ -55,30 +55,43 @@ Reevit connects to the tools your business already uses. Like our payment model,
 
 ## 🚀 Example: High-Value Alert
 
-Here is how you define an automated alert for a large transaction via the API.
+Use the REST API for workflows; the published Node SDK does not expose a workflows service. Keep the operation key stable when retrying this workflow's creation with the same payload.
 
 ```typescript
-import { Reevit } from '@reevit/node';
-
-const workflow = await reevit.workflows.create({
-  name: 'VIP Purchase Alert',
-  trigger: 'payment.success',
-  conditions: {
-    amount_gte: 500000 // 5,000 GHS
+const response = await fetch(new URL('/v1/workflows/rules', process.env.REEVIT_BASE_URL ?? 'https://api.reevit.io'), {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Reevit-Key': process.env.REEVIT_API_KEY!,
+    'X-Org-Id': process.env.REEVIT_ORG_ID!,
+    'Idempotency-Key': 'workflow:create:vip-purchase-alert',
   },
-  actions: [
-    {
-      type: 'send_notification',
-      integration_id: 'slack_finance_channel',
-      message: '💰 Large payment received: {{amount}} {{currency}} from {{customer_email}}'
-    },
-    {
-      type: 'send_email',
-      template_id: 'vip_thank_you_note',
-      to: '{{customer_email}}'
-    }
-  ]
+  body: JSON.stringify({
+    name: 'VIP Purchase Alert',
+    trigger: 'payment.success',
+    enabled: true,
+    conditions: { amount_gte: 500000, currency: 'GHS' }, // GHS 5,000.00
+    actions: [
+      {
+        type: 'slack',
+        config: {
+          integration_id: 'slack_finance_channel',
+          channel: '#finance',
+          message_template: 'Large payment received: {{amount}} {{currency}} from {{customer_email}}',
+        },
+      },
+      {
+        type: 'email',
+        config: {
+          template_id: 'vip_thank_you_note',
+          to: '{{customer_email}}',
+        },
+      },
+    ],
+  }),
 });
+if (!response.ok) throw new Error(`Reevit request failed: ${response.status}`);
+const workflow = await response.json();
 ```
 
 ---

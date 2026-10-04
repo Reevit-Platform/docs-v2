@@ -53,7 +53,7 @@ const connection = await reevit.connections.create({
     methods: ['card', 'mobile_money'],
     countries: ['GH']
   }
-});
+}, { idempotencyKey: 'connection:create:paystack_gh_primary:live' });
 ```
 
 ---
@@ -99,7 +99,7 @@ await reevit.connections.create({
   mode: 'live',
   credentials: { client_id: '...', secret: '...' },
   labels: ['fallback', 'ghana', 'momo-only']
-});
+}, { idempotencyKey: 'connection:create:hubtel_gh_fallback:live' });
 ```
 
 ---
@@ -131,16 +131,18 @@ Your credentials are only decrypted when:
    // Sandbox - never use test keys in production
    await reevit.connections.create({
      id: 'paystack_sandbox',
+     provider: 'paystack',
      mode: 'sandbox',
      credentials: { secret_key: 'sk_test_...' }
-   });
+   }, { idempotencyKey: 'connection:create:paystack_sandbox:sandbox' });
 
    // Production - use live keys only
    await reevit.connections.create({
      id: 'paystack_live',
+     provider: 'paystack',
      mode: 'live',
      credentials: { secret_key: 'sk_live_...' }
-   });
+   }, { idempotencyKey: 'connection:create:paystack_live:live' });
    ```
 
 2. **Never expose credentials in logs or error messages**
@@ -151,20 +153,24 @@ Your credentials are only decrypted when:
    - Most PSPs allow key rotation without service interruption
    - Update credentials via the API when rotating:
    ```typescript
-   await reevit.connections.update('paystack_live', {
+   await reevit.connections.create({
+     id: 'paystack_live',
+     provider: 'paystack',
+     mode: 'live',
      credentials: { secret_key: 'sk_live_new_key...' }
-   });
+   }, { idempotencyKey: 'connection:update:paystack_live:revision_2' });
    ```
 
 4. **Use webhook secrets for signature verification**
    ```typescript
    await reevit.connections.create({
      provider: 'stripe',
+     mode: 'live',
      credentials: {
        secret_key: 'sk_live_...',
        stripe_webhook_secret: 'whsec_...'  // For webhook verification
      }
-   });
+   }, { idempotencyKey: 'connection:create:stripe' });
    ```
 
 <Callout type="info">

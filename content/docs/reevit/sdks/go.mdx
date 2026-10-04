@@ -9,10 +9,12 @@ description: Go client library for Reevit API
 
 The official Go SDK for the Reevit payment orchestration platform.
 
+Guarded writes shown here require an idempotency key, even when the SDK argument is optional in its type signature. Keep one key per logical order or operation, reuse it with the identical payload on retries, and use a new key for a new operation. A payment reference alone does not set the header.
+
 ## Installation
 
 ```bash
-go get github.com/Reevit-Platform/go-sdk@v0.9.0
+go get github.com/Reevit-Platform/go-sdk@v0.11.0
 ```
 
 ## Quick Start
@@ -39,7 +41,7 @@ func main() {
         Metadata: map[string]interface{}{
             "order_id": "12345",
         },
-    })
+    }, reevit.WithIdempotencyKey("order:ORD-12345"))
     if err != nil {
         panic(err)
     }
@@ -107,7 +109,7 @@ intent, err := client.Payments.CreateIntent(ctx, &reevit.PaymentIntentRequest{
     Metadata: map[string]interface{}{
         "order_id": "ORD-2024-001",
     },
-})
+}, reevit.WithIdempotencyKey("order:ORD-2024-001"))
 ```
 
 ### Get Payment
@@ -135,10 +137,10 @@ for _, p := range payments {
 ### Create Connection
 
 ```go
-conn, err := client.Connections.Create(ctx, &reevit.CreateConnectionRequest{
+conn, err := client.Connections.Create(ctx, &reevit.ConnectionRequest{
     Provider: "paystack",
     Mode:     "live",
-    Credentials: map[string]string{
+    Credentials: map[string]interface{}{
         "secret_key": "sk_live_xxx",
     },
     Labels: []string{"nigeria", "primary"},
@@ -148,7 +150,7 @@ conn, err := client.Connections.Create(ctx, &reevit.CreateConnectionRequest{
             "card": "high",
         },
     },
-})
+}, reevit.WithIdempotencyKey("connection:create:paystack:live"))
 ```
 
 ### List Connections
@@ -213,7 +215,13 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 ## Error Handling
 
 ```go
-intent, err := client.Payments.CreateIntent(ctx, req)
+intent, err := client.Payments.CreateIntent(ctx, &reevit.PaymentIntentRequest{
+    Amount:    5000,
+    Currency:  "GHS",
+    Method:    "mobile_money",
+    Country:   "GH",
+    Reference: "ORD-12345",
+}, reevit.WithIdempotencyKey("order:ORD-12345"))
 if err != nil {
     if apiErr, ok := err.(*reevit.APIError); ok {
         fmt.Printf("API Error: %s (code: %s)\n", apiErr.Message, apiErr.Code)

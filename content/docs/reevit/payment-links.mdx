@@ -38,15 +38,16 @@ Navigate to **Payment Links** in your dashboard and click "Create Link". Fill in
 ```typescript
 import { Reevit } from '@reevit/node';
 
+const reevit = new Reevit(process.env.REEVIT_API_KEY!, process.env.REEVIT_ORG_ID!);
+
 const link = await reevit.paymentLinks.create({
   name: 'Event Ticket - Q1 Meetup',
-  description: 'Entry for the Jan 2025 Developer Meetup',
+  description: 'Entry for the developer meetup',
   amount: 5000, // 50.00 GHS in minor units
   currency: 'GHS',
   redirect_url: 'https://yoursite.com/thank-you',
-  max_uses: 100,
-  expires_at: '2025-01-31T23:59:59Z'
-});
+  max_uses: 100
+}, { idempotencyKey: 'payment-link:create:q1-meetup-ticket' });
 
 console.log(link.url); // https://pay.reevit.dev/lnk_xyz123
 ```

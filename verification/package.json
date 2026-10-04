@@ -1,0 +1,15 @@
+{
+  "name": "reevit-docs-published-sdk-verification",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node ../scripts/check-examples.mjs" },
+  "dependencies": {
+    "@reevit/core": "0.9.1",
+    "@reevit/react": "0.11.0",
+    "@reevit/node": "0.10.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "typescript": "5.9.3",
+    "@mdx-js/mdx": "3.1.1"
+  }
+}
