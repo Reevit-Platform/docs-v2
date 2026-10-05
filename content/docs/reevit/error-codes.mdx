@@ -112,14 +112,20 @@ Rate limit headers are included in responses:
 ### Example Error Handling
 
 ```typescript
+import { ReevitAPIError } from '@reevit/node';
+
+const createPayment = () => reevit.payments.createIntent({
+  amount: 1000,
+  currency: 'GHS',
+  method: 'mobile_money',
+  country: 'GH',
+  reference: 'ORD-12345'
+}, { idempotencyKey: 'order:ORD-12345' });
+
 try {
-  const payment = await reevit.payments.createIntent({
-    amount: 1000,
-    currency: 'GHS',
-    method: 'mobile_money',
-    reference: 'ORD-12345'
-  });
+  const payment = await createPayment();
 } catch (error) {
+  if (!(error instanceof ReevitAPIError)) throw error;
   if (error.status === 401) {
     // Invalid API key
     console.error('Authentication failed');
@@ -128,11 +134,10 @@ try {
     console.error('Validation failed:', error.message);
   } else if (error.status === 429) {
     // Rate limited - retry with backoff
-    await sleep(error.retryAfter * 1000);
-    // Retry request
-  } else if (error.status >= 500) {
+    await retryWithBackoff(createPayment);
+  } else if ((error.status ?? 0) >= 500) {
     // Server error - retry with backoff
-    await retryWithBackoff(() => reevit.payments.createIntent(...));
+    await retryWithBackoff(createPayment);
   }
 }
 ```
@@ -142,17 +147,21 @@ try {
 For transient errors (5xx, rate limits), use exponential backoff:
 
 ```typescript
-async function retryWithBackoff(fn, maxRetries = 3) {
+import { ReevitAPIError } from '@reevit/node';
+
+async function retryWithBackoff<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (error) {
       if (i === maxRetries - 1) throw error;
-      if (error.status < 500 && error.status !== 429) throw error;
+      if (!(error instanceof ReevitAPIError)) throw error;
+      if ((error.status ?? 0) < 500 && error.status !== 429) throw error;
       
       const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
       await new Promise(r => setTimeout(r, delay));
     }
   }
+  throw new Error('No request attempts configured');
 }
 ```

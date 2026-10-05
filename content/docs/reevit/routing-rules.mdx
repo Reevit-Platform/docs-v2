@@ -49,14 +49,14 @@ You can manage your routing logic programmatically or via the dashboard.
 ```typescript
 import { Reevit } from '@reevit/node';
 
-const rule = await reevit.routing.createRule({
+const rule = await reevit.routingRules.create({
   name: 'Ghana MoMo → Hubtel Primary',
   countries: ['GH'],
   methods: ['mobile_money'],
   connection_id: 'hubtel_live_primary',
   priority: 10,
   fallback_to_default: true // Attempt other Ghanaian connections if Hubtel fails
-});
+}, { idempotencyKey: 'routing-rule:create:ghana-momo-hubtel' });
 ```
 
 ### Rule Parameters

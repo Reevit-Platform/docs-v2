@@ -67,7 +67,7 @@ const payment = await reevit.payments.createIntent({
   metadata: {
     order_id: 'ORD-123'
   }
-});
+}, { idempotencyKey: 'order:ORD-123' });
 
 console.log('Payment ID:', payment.id);
 ```

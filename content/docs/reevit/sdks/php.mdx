@@ -9,6 +9,8 @@ description: PHP library for Reevit API
 
 The official PHP SDK for the Reevit payment orchestration platform.
 
+Guarded writes shown here require an idempotency key, even when the SDK argument is optional in its type signature. Keep one key per logical order or operation, reuse it with the identical payload on retries, and use a new key for a new operation. A payment reference alone does not set the header.
+
 ## Installation
 
 ```bash
@@ -23,7 +25,7 @@ require_once 'vendor/autoload.php';
 
 use Reevit\Reevit;
 
-$client = new Reevit('pfk_live_xxx.secret');
+$client = new Reevit('pfk_live_xxx.secret', 'org_123');
 
 // Create payment intent
 $intent = $client->payments->createIntent([
@@ -36,7 +38,7 @@ $intent = $client->payments->createIntent([
     'metadata' => [
         'order_id' => '12345',
     ],
-]);
+], 'order:ORD-12345');
 
 echo "Payment ID: {$intent['id']}, Status: {$intent['status']}\n";
 ```
@@ -68,6 +70,7 @@ echo $session['session_secret'];
 ```php
 $client = new Reevit(
     getenv('REEVIT_API_KEY'),
+    getenv('REEVIT_ORG_ID'),
     getenv('REEVIT_BASE_URL') ?: 'https://api.reevit.io'
 );
 ```
@@ -89,7 +92,7 @@ $intent = $client->payments->createIntent([
     'metadata' => [
         'order_id' => 'ORD-2024-001',
     ],
-]);
+], 'order:ORD-2024-001');
 ```
 
 ### Get Payment
@@ -102,7 +105,7 @@ echo "Status: {$payment['status']}\n";
 ### List Payments
 
 ```php
-$payments = $client->payments->list(['limit' => 50, 'offset' => 0]);
+$payments = $client->payments->list(50, 0);
 foreach ($payments as $payment) {
     echo "{$payment['id']}: {$payment['status']}\n";
 }
@@ -110,15 +113,21 @@ foreach ($payments as $payment) {
 
 ### Refund Payment
 
+Choose either a full or partial refund. Each separate refund request needs its own stable operation key.
+
+With the published PHP SDK 0.3.0, include a reason for a full refund so the request body is a JSON object. Keep the amount `null` to request the full refund.
+
 ```php
 // Full refund
-$refund = $client->payments->refund('pay_abc123');
+$refund = $client->payments->refund('pay_abc123', null, 'Customer requested', 'refund:pay_abc123:full');
 
 // Partial refund
-$refund = $client->payments->refund('pay_abc123', [
-    'amount' => 2500,
-    'reason' => 'Customer requested',
-]);
+$refund = $client->payments->refund(
+    'pay_abc123',
+    2500,
+    'Customer requested',
+    'refund:pay_abc123:partial_1'
+);
 ```
 
 ---
@@ -139,7 +148,7 @@ $connection = $client->connections->create([
         'country_preference' => ['NG'],
         'method_bias' => ['card' => 'high'],
     ],
-]);
+], 'connection:create:paystack:live');
 ```
 
 ### List Connections
@@ -147,7 +156,7 @@ $connection = $client->connections->create([
 ```php
 $connections = $client->connections->list();
 foreach ($connections as $conn) {
-    echo "{$conn->provider} ({$conn->mode}): {$conn->status}\n";
+    echo "{$conn['provider']} ({$conn['mode']}): {$conn['status']}\n";
 }
 ```
 
@@ -231,11 +240,11 @@ try {
         'currency' => 'GHS',
         'method' => 'mobile_money',
         'country' => 'GH',
-    ]);
-} catch (\Reevit\Exception\ApiException $e) {
+    ], 'order:ORD-12345');
+} catch (\Reevit\ReevitApiException $e) {
     echo "API Error: {$e->getMessage()}\n";
-    echo "Code: {$e->getCode()}\n";
-    echo "HTTP Status: {$e->getHttpStatus()}\n";
+    echo "Code: {$e->getErrorCode()}\n";
+    echo "HTTP Status: {$e->getStatus()}\n";
 } catch (\Exception $e) {
     echo "Error: {$e->getMessage()}\n";
 }

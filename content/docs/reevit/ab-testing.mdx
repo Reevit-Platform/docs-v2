@@ -29,7 +29,7 @@ A/B tests let you compare the performance of different PSP connections under rea
 
 ## ⚙️ How It Works
 
-1.  **Create an Experiment**: Define at least two `variants`, each pointing to a different `connection_id` with a `weight` (traffic allocation).
+1.  **Create an Experiment**: Define at least two `variants`, each pointing to a different existing `routing_rule_id` with a `weight` (traffic allocation).
 2.  **Set Targeting**: Optionally limit the experiment to specific currencies, countries, or payment methods.
 3.  **Start the Test**: Activate the experiment. Reevit's router will split traffic according to your weights.
 4.  **Analyze Results**: View real-time success rates, latency, and costs per variant.
@@ -39,22 +39,38 @@ A/B tests let you compare the performance of different PSP connections under rea
 
 ## 🛠️ Creating an A/B Test
 
-### Via SDK
+### Via REST API
 
 ```typescript
-import { Reevit } from '@reevit/node';
+// The published Node SDK does not expose routing A/B tests.
+const apiBaseUrl = process.env.REEVIT_BASE_URL ?? 'https://api.reevit.io';
+const headers = {
+  'Content-Type': 'application/json',
+  'X-Reevit-Key': process.env.REEVIT_API_KEY!,
+  'X-Org-Id': process.env.REEVIT_ORG_ID!,
+};
+async function routingRequest(path: string, method = 'GET', body?: unknown, operationKey?: string) {
+  const response = await fetch(new URL(path, apiBaseUrl), {
+    method,
+    headers: { ...headers, ...(operationKey ? { 'Idempotency-Key': operationKey } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`Reevit request failed: ${response.status}`);
+  return response.json();
+}
 
-const test = await reevit.abTests.create({
+// Create the referenced routing rules before creating the experiment.
+const test = await routingRequest('/v1/routing-ab-tests', 'POST', {
   name: 'Ghana MoMo Provider Comparison',
   description: 'Hubtel vs Paystack for MTN Mobile Money',
   variants: [
-    { connection_id: 'hubtel_gh_live', weight: 50 },
-    { connection_id: 'paystack_gh_live', weight: 50 }
+    { name: 'Hubtel', routing_rule_id: 'rr_hubtel_gh', weight: 50 },
+    { name: 'Paystack', routing_rule_id: 'rr_paystack_gh', weight: 50 },
   ],
-  traffic_percentage: 20, // Route 20% of eligible traffic to this test
+  traffic_percentage: 20,
   target_countries: ['GH'],
-  target_methods: ['mobile_money']
-});
+  target_methods: ['mobile_money'],
+}, 'routing-experiment:create:ghana-momo-comparison');
 ```
 
 ---
@@ -65,7 +81,7 @@ const test = await reevit.abTests.create({
 | :--- | :--- | :---: | :--- |
 | `name` | string | ✅ | A descriptive name for the experiment. |
 | `description` | string | | Explain the purpose of the test. |
-| `variants` | array | ✅ | At least two objects, each with `connection_id` (string) and `weight` (integer percentage). |
+| `variants` | array | ✅ | At least two objects, each with `name` (string), an existing `routing_rule_id` (string), and `weight` (positive relative weight). |
 | `traffic_percentage` | integer | | Percentage of eligible traffic (1-100) to route through the test. Default: `100`. |
 | `target_currencies` | string[] | | Limit test to specific currencies (e.g., `["GHS"]`). |
 | `target_countries` | string[] | | Limit test to specific country codes (e.g., `["GH", "NG"]`). |
@@ -87,9 +103,9 @@ const test = await reevit.abTests.create({
 ### Managing the Lifecycle
 
 ```typescript
-await reevit.abTests.start('abt_xyz123');
-await reevit.abTests.pause('abt_xyz123');
-await reevit.abTests.complete('abt_xyz123');
+await routingRequest('/v1/routing-ab-tests/abt_xyz123/start', 'POST');
+await routingRequest('/v1/routing-ab-tests/abt_xyz123/pause', 'POST');
+await routingRequest('/v1/routing-ab-tests/abt_xyz123/complete', 'POST');
 ```
 
 ---
@@ -99,15 +115,8 @@ await reevit.abTests.complete('abt_xyz123');
 Fetch the comparison report:
 
 ```typescript
-const comparison = await reevit.abTests.getComparison('abt_xyz123');
-// {
-//   variants: [
-//     { connection_id: 'hubtel_gh_live', success_rate: 0.94, avg_latency_ms: 450, total_payments: 1200 },
-//     { connection_id: 'paystack_gh_live', success_rate: 0.91, avg_latency_ms: 520, total_payments: 1180 }
-//   ],
-//   winner: 'hubtel_gh_live',
-//   statistical_significance: 0.95
-// }
+const comparison = await routingRequest('/v1/routing-ab-tests/abt_xyz123/comparison');
+console.log(comparison);
 ```
 
 ---

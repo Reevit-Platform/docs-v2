@@ -66,7 +66,7 @@ const payment = await reevit.payments.createIntent({
     cart_id: '99',
     order_id: 'order_12345'
   }
-});
+}, { idempotencyKey: 'order:ORD-12345' });
 
 // Response status: 'requires_action' | 'succeeded' | 'failed'
 ```
@@ -86,7 +86,7 @@ If a payment requires user input (like a 3D Secure redirect or a Mobile Money pr
 
 ## ✅ Best Practices
 
-1.  **Always use Idempotency**: Provide an `idempotency_key` (like an Order ID) to prevent double-charging customers during network retries.
+1.  **Always use Idempotency**: Pass a stable `idempotencyKey` in the SDK request options (or an `Idempotency-Key` header in REST). Use one key per logical order and reuse it with the identical payload on retries.
 2.  **Fulfill on Webhooks**: Never fulfill an order based solely on a frontend redirect. Wait for the `payment.updated` [webhook event](/docs/reevit/webhooks) carrying `data.status: "succeeded"` — there is no `payment.succeeded` webhook.
 3.  **Use Test Mode**: Develop your integration using `pfk_test_...secret` keys to simulate different success and failure scenarios.
 

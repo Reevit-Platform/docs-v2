@@ -21,7 +21,7 @@ npm install @reevit/react
 The recommended production flow is to create a checkout session on your backend, then pass `sessionSecret` to the `ReevitCheckout` component.
 
 ```tsx
-import { ReevitCheckout } from '@reevit/react';
+import { ReevitCheckout, formatAmount } from '@reevit/react';
 import '@reevit/react/styles.css';
 
 function App({ sessionSecret }: { sessionSecret: string }) {
@@ -30,7 +30,7 @@ function App({ sessionSecret }: { sessionSecret: string }) {
       sessionSecret={sessionSecret}
       onSuccess={(result) => {
         console.log('Payment success!', result);
-        alert(`Payment of ${result.currency} ${result.amount/100} successful!`);
+        alert(`Payment of ${formatAmount(result.amount, result.currency)} successful!`);
       }}
       onError={(error) => {
         console.error('Payment failed:', error.message);
