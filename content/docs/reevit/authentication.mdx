@@ -28,7 +28,7 @@ curl -X POST https://api.reevit.io/v1/api-keys \
   -H "Idempotency-Key: key-create-001" \
   -d '{
     "name": "Backend Production",
-    "scopes": ["payments:read", "payments:write"]
+    "scopes": ["payments:read", "payments:write", "refunds:write"]
   }'
 ```
 
@@ -38,7 +38,7 @@ curl -X POST https://api.reevit.io/v1/api-keys \
   "id": "key_abc123",
   "name": "Backend Production",
   "key": "pfk_live_a1b2c3d4e5f6g7h8i9j0.secret",
-  "scopes": ["payments:read", "payments:write"],
+  "scopes": ["payments:read", "payments:write", "refunds:write"],
   "created_at": "2025-02-10T10:00:00Z"
 }
 ```
@@ -97,7 +97,8 @@ API keys are scoped to limit access:
 | `connections:read` | View PSP connections |
 | `connections:write` | Create/update/delete connections |
 | `payments:read` | View payments and stats |
-| `payments:write` | Create/confirm/refund payments |
+| `payments:write` | Create/confirm payments |
+| `refunds:write` | Refund payments — see [Refunds write](#refunds-write) |
 | `fraud:read` | View fraud policies |
 | `fraud:write` | Update fraud policies |
 | `webhooks:read` | View webhook events and config |
@@ -111,6 +112,52 @@ API keys are scoped to limit access:
 | `workflows:read` | View workflow automation |
 | `workflows:write` | Manage workflows |
 
+### Refunds write
+
+`refunds:write` was split out of `payments:write` on 2 September 2026. Refunding
+is the one payment operation that sends money back out, so it now has a scope of
+its own instead of riding on the scope that creates payments. Three endpoints
+enforce it:
+
+- `POST /v1/payments/{id}/refund`
+- `POST /v1/payments/bulk/refund`
+- `POST /v1/payments/refunds/bulk`
+
+**Keys issued before the split keep working until Tue, 01 Dec 2026 00:00:00
+GMT.** Until that instant these endpoints also accept `payments:write`. The refund
+succeeds, and the response tells you the grant is on its way out:
+
+```http
+Deprecation: true
+Sunset: Tue, 01 Dec 2026 00:00:00 GMT
+Link: <https://docs.reevit.io/authentication#refunds-write>; rel="deprecation"
+```
+
+After the sunset these endpoints require `refunds:write`, and a key holding
+only `payments:write` gets a `403`.
+
+To migrate, request `refunds:write` explicitly when you create a key:
+
+```bash
+curl -X POST https://api.reevit.io/v1/api-keys \
+  -H "X-Reevit-Key: pfk_live_xxx.secret" \
+  -H "X-Org-Id: org_123" \
+  -H "Idempotency-Key: key-create-002" \
+  -d '{
+    "name": "Refund Worker",
+    "scopes": ["payments:read", "refunds:write"]
+  }'
+```
+
+A few things to know:
+
+- `refunds:write` is held by the **owner**, **admin** and **finance** roles. A key
+  can only be issued with scopes its creator holds, so ask someone in one of those
+  roles to mint it.
+- Live keys still require KYC approval, exactly as they do for every other scope.
+- The CLI pairing flow grants `refunds:write` only when the request names it. The
+  default scopes it asks for are unchanged.
+
 ### Scope Errors
 
 If you call an endpoint without the required scope:
@@ -118,9 +165,13 @@ If you call an endpoint without the required scope:
 ```json
 {
   "error": "forbidden",
-  "message": "API key missing required scope: payments:write"
+  "message": "missing scope: payments:write"
 }
 ```
+
+Endpoints that accept more than one scope — the refund endpoints during the
+[`refunds:write` migration](#refunds-write) — return `missing required scope`
+without naming one.
 
 ---
 
