@@ -28,7 +28,7 @@ Ask your agent to "create a GHS 50 payment link for the March invoice" or
 | `reevit_list_payments` | Recent payments with filters, paged | `payments:read` |
 | `reevit_get_payment_failures` | **Why** a payment failed: provider error, fault party, retriable | `payments:read` |
 | `reevit_get_payment_status_history` | Ordered status transitions and what triggered each | `payments:read` + a plan with audit logs |
-| `reevit_create_refund` | Full/partial refund — **live mode requires human approval** | `payments:write` |
+| `reevit_create_refund` | Full/partial refund — **live mode requires human approval** | `refunds:write` (or `payments:write` until 2026-12-01) |
 | `reevit_get_refund` | One refund by id — did it actually settle? | `payments:read` |
 | `reevit_list_refunds` | Refunds account-wide, or every refund on one payment | `payments:read` |
 | `reevit_get_payment_analytics` | Volume, counts, success rate | `payments:read` |
